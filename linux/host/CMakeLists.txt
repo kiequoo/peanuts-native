@@ -38,7 +38,7 @@ endforeach()
 # --- Host C sources ---
 # Every dm/host/*.c except the VideoToolbox movie decoder (no AVC on Linux yet; movie_avc_linux.c will stub it)
 file(GLOB HOST_C CONFIGURE_DEPENDS ${HOST}/*.c)
-list(REMOVE_ITEM HOST_C ${HOST}/hle_movie_avc.c)
+list(REMOVE_ITEM HOST_C ${HOST}/hle_movie_avc.c ${HOST}/main.c)
 # Linux platform, front end, and movie stubs (AVC/AAC → black; AV1 goes through dav1d below)
 list(APPEND HOST_C
   ${HOST}/plat/plat_linux.c
