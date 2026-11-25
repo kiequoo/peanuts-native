@@ -44,6 +44,7 @@ list(APPEND HOST_C
   ${HOST}/plat/plat_linux.c
   ${HOST}/plat/front_linux.c
   ${HOST}/android/input_android.c   # nxhost_input_* API; Android sensor/codec sections guarded by PLAT_ANDROID
+  ${HOST}/android/input_map.c       # pure-C nxin_pad_* / nxin_touch_* helpers used by input_android.c
   ${CMAKE_CURRENT_SOURCE_DIR}/stubs/movie_avc_stub.c   # Stage 2: replace with movie_avc_linux.c (FFmpeg H.264)
   ${ROOT}/dm/peanuts/profile/profile_rt.c
 )
