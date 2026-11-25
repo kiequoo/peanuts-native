@@ -6,10 +6,13 @@
 #if PLAT_APPLE
 #include <AudioToolbox/AudioToolbox.h>
 typedef AudioUnit au_t; typedef OSStatus au_status_t;
-#else
+#elif PLAT_ANDROID
 #include <aaudio/AAudio.h>
 #include "android/av_android.h"
 typedef struct aa_out *au_t; typedef int32_t au_status_t;   // an AAudio stream per output (below), in the AudioUnit's place
+#else
+/* Linux: no audio backend yet — the null sink (null_start/null_stop) handles all outputs */
+typedef void *au_t; typedef int au_status_t;
 #endif
 #include <stdatomic.h>
 #include <unistd.h>
@@ -256,7 +259,7 @@ static OSStatus au_create(aout *a) {
 static au_status_t au_start(au_t au) { return AudioOutputUnitStart(au); }
 static void au_stop(au_t au) { AudioOutputUnitStop(au); }
 static void au_teardown(au_t au) { AudioUnitUninitialize(au); AudioComponentInstanceDispose(au); }   // after a media services reset: the listeners went with the old session
-#else
+#elif PLAT_ANDROID
 // AAudio: one low-latency stream per output, PCM16 at 48 kHz with the output's device channels (a six-channel output is downmixed by pull_device, as on Apple), whose data callback
 // pulls exactly the frames it is asked for, as au_render does. The buffer is two bursts, at least 5 ms (the Mac's request; DM_DBG_AU_FRAMES=N asks N frames). A device that will
 // not open at 48 kHz gets a stream at its own rate and the linear resampler of av_android.h. A stream that is disconnected (headphones out, a Bluetooth route change) stops calling
@@ -420,6 +423,14 @@ static void au_stop(au_t o) {
 }
 static void au_dispose(au_t o) { if (o) { aa_close(o); free(o); } }
 static void au_teardown(au_t o) { au_dispose(o); }
+#else
+/* Linux: no audio device backend yet. au_create succeeds but leaves a->au NULL;
+ * au_start_at then falls to null_start, pacing the game's audio in real time. */
+static au_status_t au_create(aout *a) { a->au = NULL; return 0; }
+static au_status_t au_start(au_t au) { (void)au; return -1; }
+static void au_stop(au_t au) { (void)au; }
+static void au_dispose(au_t au) { (void)au; }
+static void au_teardown(au_t au) { (void)au; }
 #endif
 // OpenAudioOut runs on the game's thread, and creating the AudioUnit takes about 24 KB of stack (measured on the Mac: component lookup, instance, Initialize), more than some game threads have
 // left (Super Mario 3D World's save thread has 8 KB in all; Pokémon: Let's Go overflowed here at startup, PR #36). So it runs on a host thread, once per AudioOut (it predates the big-stack entry, which Start / Stop / Close use)
