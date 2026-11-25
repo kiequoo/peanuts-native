@@ -16,7 +16,7 @@ int vka_tf_layout_read(const uint8_t *ctl, size_t n, vka_tf_layout *out);
 // or NULL with the reason in err
 uint32_t *vka_spv_xfb(const uint32_t *w, size_t nw, const vka_tf_layout *L, uint32_t max_loc, size_t *out_nw, char *err, size_t errn);
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 // The capture variant of the draw's vertex shader when this draw can be captured (feedback is on in d): a shader of its own key whose modules carry the capture, to draw
 // with in place of sh[0], followed by vka_tf_begin / vka_tf_end around the draw call. NULL = not captured, the reason logged once (the caller draws as it did before)
