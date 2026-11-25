@@ -16,7 +16,7 @@
 // pools of 100-500 MiB; the replay thread stood 300-500 ms in one submission, the game waited that long on its GPU fences with 3-4 ms of GPU work, and its render thread
 // that long in its own NVN calls). A lookup misses no segment by this: a pool's range is not in the table until its placement ends, and no command can use the pool before
 // mtl_pool_need returns. DM_VK_MEM_LOCK_WHOLE=1 holds the write lock across a placement as before (diagnostic A/B)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "../nvn/nvn_mtl.h"
 #include "../nvn/nvn_dirty.h"

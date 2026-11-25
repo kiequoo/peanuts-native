@@ -5,7 +5,7 @@
 // the SDK's GLSL passes compiled for reversed depth, HDR colour, render-size motion vectors, no half precision, the SPD passes with and without wave operations. Rebuilt and checked by dm/tools/fsr3_shaders.py.
 // Here each pass is a compute pipeline with push descriptors (set 0: its bindings in the SDK's order, then the point and linear samplers at 1000 and 1001), recorded into the
 // replay's command buffer where the game's DLSS evaluation is. Every image stays in GENERAL. DM_VK_DLSS=4 picks it (the Upscaler row's FSR 3.1) (the caller then uses FSR 1 or the linear copy)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <float.h>
 #include <math.h>

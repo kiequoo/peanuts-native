@@ -8,7 +8,7 @@
 // --list: the textures the frame's records name, with their images; --dump: PNGs of those serials' level 0; --dump-rt: of every colour image the GPU wrote among them;
 // --dump-gpu: of every colour image the GPU wrote, named by the records or not (intermediate targets: a scene before its upscaler).
 // Exit status: 0 the frame equals the live one (within --max-pixels), 1 it differs, 2 the capture cannot be replayed by this build ([RED] line)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka_capture.h"
 #include "../nvn/nvn_mtl.h"
 #include "../nvn/nvn_dirty.h"

@@ -4,8 +4,18 @@
 #pragma once
 #define VK_NO_PROTOTYPES 1
 #include <vulkan/vulkan_core.h>
+// Platform-specific window/surface headers and the matching surface-creation function pointer.
+// On Android: ANativeWindow + VK_KHR_android_surface; on Linux arm64: wl_surface/wl_display + VK_KHR_wayland_surface
+#if defined(__ANDROID__)
 #include <android/native_window.h>
 #include <vulkan/vulkan_android.h>
+#define VKA_SURFACE_FN(X) X(vkCreateAndroidSurfaceKHR)
+#elif defined(__linux__) && defined(__aarch64__)
+#include <vulkan/vulkan_wayland.h>
+#define VKA_SURFACE_FN(X) X(vkCreateWaylandSurfaceKHR)
+#else
+#define VKA_SURFACE_FN(X)   // non-Vulkan-surface platform (Mac uses Metal, not this replay)
+#endif
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdlib.h>   // PEANUTS: getenv/atoi (vka_red_repeat)
@@ -26,7 +36,7 @@ static inline int vka_red_repeat(void) { static int n = -1; if (n < 0) { const c
     X(vkEnumeratePhysicalDevices) X(vkGetPhysicalDeviceProperties) X(vkGetPhysicalDeviceProperties2) X(vkGetPhysicalDeviceFeatures) X(vkGetPhysicalDeviceFeatures2) \
     X(vkGetPhysicalDeviceMemoryProperties) X(vkGetPhysicalDeviceQueueFamilyProperties) X(vkGetPhysicalDeviceFormatProperties) X(vkGetPhysicalDeviceImageFormatProperties) X(vkGetPhysicalDeviceSparseImageFormatProperties) \
     X(vkEnumerateDeviceExtensionProperties) X(vkGetPhysicalDeviceExternalBufferProperties) X(vkCreateDevice) X(vkGetDeviceProcAddr) \
-    X(vkCreateAndroidSurfaceKHR) X(vkDestroySurfaceKHR) X(vkGetPhysicalDeviceSurfaceSupportKHR) X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+    VKA_SURFACE_FN(X) X(vkDestroySurfaceKHR) X(vkGetPhysicalDeviceSurfaceSupportKHR) X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
     X(vkGetPhysicalDeviceSurfaceFormatsKHR) X(vkGetPhysicalDeviceSurfacePresentModesKHR)
 #define VKA_DEVICE_FNS(X) \
     X(vkGetDeviceQueue) X(vkDeviceWaitIdle) X(vkQueueSubmit) X(vkQueueWaitIdle) X(vkQueueBindSparse) X(vkGetImageSparseMemoryRequirements) \
@@ -89,7 +99,7 @@ void vka_exec_counts(uint64_t *ops, uint64_t *subs, uint64_t *rec_ns);   // vka_
 typedef struct {
     VkInstance inst; VkPhysicalDevice pd; VkDevice dev; VkQueue q; uint32_t qf;
     VkPhysicalDeviceProperties props; VkPhysicalDeviceMemoryProperties memp;
-    int placed, placed_range, unmap_reserve, fd_alias, bda, uab, display_timing, has_android_surface;
+    int placed, placed_range, unmap_reserve, fd_alias, bda, uab, display_timing, has_surface;   // has_surface: the platform surface extension is available (VK_KHR_android/wayland_surface)
     int mem_budget;                                 // VK_EXT_memory_budget: the texture cache's limit reads the image heap's budget and usage (vka_tex.c, vka_texlimit.h)
     void *perf_hint;                                // vkQueueSetPerfHintQCOM (VK_QCOM_queue_perf_hint), NULL without it: vka_gpu_floor
     // The draw path's device facts: push descriptors (and how many a set may hold), vertex input dynamic state, robustness2's null descriptors, 8-bit indices,

@@ -8,7 +8,7 @@
 //   "screenshot [p]"  the next presented game frame (the window texture, before the present's scaling) as a PNG, by default ctl-shot-<frame>.png beside the control file
 //   "stats"           log lines now: the last 60 frames' averages, the frame rate, placed memory, pipelines, the switches set live, and the images by content and by why they stay
 // Every answer is a log line starting "[vk] ctl:" (android/tools/nxctl.sh waits for them)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vk_android.h"
 #include <stdio.h>

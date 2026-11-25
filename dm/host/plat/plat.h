@@ -1,7 +1,7 @@
-// Platform layer: the host services whose system interface differs between Apple's kernels (macOS, iOS) and Linux / Bionic (Android).
+// Platform layer: the host services whose system interface differs between Apple's kernels (macOS, iOS), Android / Bionic (arm64), and bare Linux / glibc (arm64).
 // Everything else in dm/host is plain POSIX and C. plat_apple.h keeps the Apple calls the host made before this layer existed, so the Mac and iPhone behave as they did;
-// plat_android.c is the Bionic side (android/PORTING.md lists each call and its replacement). A service Android does not have yet logs a [RED] line once and fails the way
-// the Apple call fails, so the caller's existing fallback runs.
+// plat_android.c is the Bionic side (android/PORTING.md lists each call and its replacement); plat_linux.c is the glibc side (linux/PORTING.md).
+// A service not yet ported logs a [RED] line once and fails the way the Apple call fails, so the caller's existing fallback runs.
 #pragma once
 #include <pthread.h>
 #include <signal.h>
@@ -14,16 +14,25 @@
 #include <sys/ucontext.h>
 #define PLAT_APPLE 1
 #define PLAT_ANDROID 0
+#define PLAT_LINUX 0
 #define PLAT_MAC TARGET_OS_OSX
 #define PLAT_IOS TARGET_OS_IPHONE
 #elif defined(__ANDROID__) && defined(__aarch64__)
 #include <ucontext.h>
 #define PLAT_APPLE 0
 #define PLAT_ANDROID 1
+#define PLAT_LINUX 0
+#define PLAT_MAC 0
+#define PLAT_IOS 0
+#elif defined(__linux__) && defined(__aarch64__)
+#include <ucontext.h>
+#define PLAT_APPLE 0
+#define PLAT_ANDROID 0
+#define PLAT_LINUX 1
 #define PLAT_MAC 0
 #define PLAT_IOS 0
 #else
-#error "the host runs on Apple platforms or Android arm64"
+#error "the host runs on Apple platforms, Android arm64, or Linux arm64"
 #endif
 // Apple: every function is a static inline wrapper in plat_apple.h; Android: plat_android.c
 #if PLAT_APPLE
@@ -100,8 +109,9 @@ PLAT_FN void plat_ptrmap_remove(plat_ptrmap_t *m, const void *k);
 
 // ---- Guest thread slots ----
 // The rewriter (patch_nso.py) turns the guest's x18, tpidr_el0 and tpidrro_el0 into four per-thread slots, which its code reaches as <thread base> + <key page entry>.
-// Apple: the base is tpidrro_el0 (the pthread TSD array) and each slot a pthread key, the entry key × 8. Android (--target android): the base is the block Bionic's
-// TLS_SLOT_APP holds (tpidr_el0 + 0x10), the entry the slot's offset in it (android/PORTING.md "Thread slots")
+// Apple: the base is tpidrro_el0 (the pthread TSD array) and each slot a pthread key, the entry key × 8.
+// Android (--target android): the base is the block Bionic's TLS_SLOT_APP holds (tpidr_el0 + 0x10), the entry the slot's offset in it.
+// Linux (--target linux): the base is tpidr_el0 (the glibc thread pointer) and each slot a fixed TPREL offset into a local-exec __thread block (linux/PORTING.md "Thread slots").
 enum { PLAT_SLOT_K18, PLAT_SLOT_KTLS, PLAT_SLOT_KTLR, PLAT_SLOT_KGATE, PLAT_SLOT_N };
 PLAT_FN void plat_slots_init(void);                          // once, before the first module is mapped
 PLAT_FN uint64_t plat_slot_key_entry(unsigned slot);         // what the loader writes into a module's key page for this slot
@@ -110,7 +120,7 @@ PLAT_FN void plat_slot_check(uint64_t k18_entry);            // the main thread 
 extern pthread_key_t g_key18, g_keytls, g_keytlr, g_keygate;
 #define dm_slot_get(s) pthread_getspecific(g_key##s)
 #define dm_slot_set(s, v) pthread_setspecific(g_key##s, (v))
-#else
+#elif PLAT_ANDROID
 typedef struct { void *slot18, *slottls, *slottlr, *slotgate; } plat_slots_t;   // = PLAT_SLOT_* order (the key page entries are offsets into it)
 plat_slots_t *plat_slots_own(void);   // this thread's block, made on first use and freed when the thread exits
 static inline plat_slots_t *plat_slots_peek(void) { void **tp; __asm__ volatile("mrs %0, tpidr_el0" : "=r"(tp)); return (plat_slots_t *)tp[2]; }   // Bionic's TLS_SLOT_APP; NULL before the first set
@@ -118,6 +128,13 @@ static inline plat_slots_t *plat_slots(void) { plat_slots_t *s = plat_slots_peek
 // A read never allocates (signal handlers read the slots) and gives NULL on a thread that never set one, as an unset pthread key does on Apple
 #define dm_slot_get(s) (plat_slots_peek() ? plat_slots_peek()->slot##s : NULL)
 #define dm_slot_set(s, v) (plat_slots()->slot##s = (void *)(v), 0)
+#elif PLAT_LINUX
+// Linux: a local-exec __thread struct; the loader writes each field's TPREL offset as the key page entry (plat_linux.c plat_slot_key_entry).
+// Direct C access is safe everywhere (no Bionic TCB indirection needed). Signal handlers always see valid storage — no NULL check required.
+typedef struct { void *slot18, *slottls, *slottlr, *slotgate; } plat_slots_t;   // = PLAT_SLOT_* order
+extern __thread plat_slots_t g_slots_linux;
+#define dm_slot_get(s) (g_slots_linux.slot##s)
+#define dm_slot_set(s, v) (g_slots_linux.slot##s = (void *)(v), 0)
 #endif
 
 // ---- Threads ----

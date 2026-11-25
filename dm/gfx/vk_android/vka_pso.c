@@ -4,7 +4,7 @@
 // Everything else is dynamic (EDS1 / EDS2): viewport and scissor (one of each), cull mode, front face, topology, depth and stencil tests, depth bias, rasterizer discard,
 // primitive restart, blend constants. Pipelines and set layouts live as long as the process; the VkPipelineCache goes to the app's files (DM_TEMP, the game's own temp folder)
 // so the next start builds from it. Layouts follow dmsh_abi_vk.h: set 0 the per-draw records of every stage (push descriptors when they fit), set 1 the pools (vka_tex.c)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vk_android.h"   // PEANUTS: startup pipeline prewarm
 #include "vka_memu_abi.h"

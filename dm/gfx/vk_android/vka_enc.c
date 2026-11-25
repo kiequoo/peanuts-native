@@ -10,7 +10,7 @@
 //   buffer is then complete and the pool is free. vka_enc_sync does that in the middle of recording, for a direct call that must land in order (the GPU profiler's
 //   timestamps).
 // Single producer (the replay thread), single consumer (the encoder thread); the consumer spins for a short while when the ring runs empty and then sleeps on a futex.
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <linux/futex.h>
 #include <sys/syscall.h>

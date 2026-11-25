@@ -17,7 +17,7 @@
 // fallback); the table starts at the storage binding's address plus (base & 63), base being the uniform word that holds the table's address (c0[84].x there); each
 // offset's word is a combined handle: texture ID = low 20 bits, sampler ID = the rest. One `tex stats table:` line per draw and index (the record's eight words and the
 // handles), then each texture not yet scanned this frame is scanned as an input, logged with binding 1000 + 100 × the index's place + the offset
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_selftest_spv.h"
 #include <stdlib.h>

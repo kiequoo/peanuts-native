@@ -17,7 +17,7 @@
 //   replayed (vka_qsched.h); the other queues' submissions go on. DM_VK_EVENT_WAIT=0 passes every wait, as before 2026-11-09 (submission order only). A wait for an event the
 //   CPU sets is a gate instead: replayed at once, the GPU waits (vka_qsched.h "Waits for the CPU"; DM_VK_EVENT_GATE=0 parks it as in v0.2.8).
 // The game runs at most DM_VK_WORKER_FRAMES (default 1) presents ahead of the worker. DM_VK_WORKER=0 replays inline on the submitting thread, as before (waits pass).
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_qsched.h"
 #include "../nvn/nvn_mtl.h"

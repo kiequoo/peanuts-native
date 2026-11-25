@@ -7,7 +7,7 @@
 // the compositor. Pacing: FIFO, and with VK_GOOGLE_display_timing each image is shown for at least its present period (a 30 fps game on a 60 Hz panel, a 60 fps game on a
 // 120 Hz one); the window also gets the game's frame rate (ANativeWindow_setFrameRate), so the system may run the panel at it. The same extension gives the presented times
 // hle_nvn.c's frame statistics read (mtl_presented_time)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <stdio.h>
 #include "vk_android.h"
@@ -21,7 +21,7 @@
 #include "vka_present_fit.h"
 #include "vka_ovl.h"
 #include "vka_panel.h"   // PEANUTS: the panel's measured refresh grid (DM_VK_PACE_PANEL, DM_VK_PRESENT_GRID)
-#include <android/native_window.h>
+#include "plat_win.h"
 #include <dlfcn.h>
 #include <math.h>
 #include <stdlib.h>
@@ -35,20 +35,23 @@ __attribute__((weak)) int peanuts_ovl_corner(int slot, int dflt);   // PEANUTS: 
 // ---------- The window ----------
 static pthread_mutex_t g_pmu = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_pcv = PTHREAD_COND_INITIALIZER;
-static ANativeWindow *g_win_new; static uint64_t g_win_gen, g_win_ack;   // set by nxhost_set_window; the present thread takes it and acknowledges the generation
+static plat_win_t *g_win_new; static uint64_t g_win_gen, g_win_ack;   // set by nxhost_set_window; the present thread takes it and acknowledges the generation
 static int g_thread_up;
 // PEANUTS(upstream-candidate): Display.getPresentationDeadlineNanos(), updated by the game window on the UI thread.
 static _Atomic uint64_t g_presentation_deadline;
 void nxhost_presentation_deadline_set(uint64_t ns) { atomic_store_explicit(&g_presentation_deadline, ns, memory_order_relaxed); }
 static void *selftest_main(void *arg);
-void nxhost_set_window(ANativeWindow *w) {
+#if defined(__ANDROID__)
+void nxhost_set_window(struct ANativeWindow *win) { plat_win_t *w = win;
+#else
+void nxhost_set_window(void *win) { plat_win_t *w = (plat_win_t *)win;
+#endif
     static int first = 1;
-    if (w) ANativeWindow_acquire(w);
-    // No vka_init() here: this runs on the launcher's UI thread (Native.start, surfaceCreated), and creating the device inside the driver can take over 10 s
-    // (issue 251: Exynos Xclipse RADV, ioctl in vkCreateDevice), which Android reports as an ANR. The host thread's first Vulkan call makes the device; the present
-    // thread starts with it and takes the window from g_win_new (window_take), so a window that came first waits there.
+    if (w) plat_win_retain(w);
+    // No vka_init() here: this runs on the launcher's UI/main thread, and creating the device inside the driver can take over 10 s on some GPUs (issue 251).
+    // The host thread's first Vulkan call makes the device; the present thread starts with it and takes the window from g_win_new (window_take), so a window that came first waits there.
     pthread_mutex_lock(&g_pmu);
-    if (g_win_new) ANativeWindow_release(g_win_new);   // never taken by the present thread
+    if (g_win_new) plat_win_release(g_win_new);   // never taken by the present thread
     g_win_new = w; uint64_t gen = ++g_win_gen;
     pthread_cond_broadcast(&g_pcv);
     if (!w && g_thread_up) {   // surfaceDestroyed: the swapchain must be gone before the launcher returns
@@ -64,7 +67,7 @@ void nxhost_set_window(ANativeWindow *w) {
 
 // ---------- Swapchain ----------
 enum { NFRAME = 3, MAXIMG = 8, PQ = 8, PRING = 512 };
-static ANativeWindow *g_win; static VkSurfaceKHR g_surf; static VkSwapchainKHR g_swap; static VkFormat g_swap_fmt; static VkExtent2D g_ext;
+static plat_win_t *g_win; static VkSurfaceKHR g_surf; static VkSwapchainKHR g_swap; static VkFormat g_swap_fmt; static VkExtent2D g_ext;
 static VkImage g_simg[MAXIMG]; static VkSemaphore g_sdone[MAXIMG]; static uint32_t g_nimg;
 static struct { VkCommandBuffer cb; VkFence fence; VkSemaphore acq; vka_img *held; int used; } g_fr[NFRAME];
 static VkCommandPool g_ppool; static unsigned g_fi;
@@ -675,7 +678,7 @@ static int swap_create(void) {
         if (fs[i].format == (pass ? VK_FORMAT_B8G8R8A8_UNORM : VK_FORMAT_R8G8B8A8_UNORM) && fs[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) { pick = fs[i]; pass = 2; break; }
     int rot = caps.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR);
     VkExtent2D ext = caps.currentExtent;
-    if (ext.width == UINT32_MAX) ext = (VkExtent2D){(uint32_t)ANativeWindow_getWidth(g_win), (uint32_t)ANativeWindow_getHeight(g_win)};
+    if (ext.width == UINT32_MAX) ext = (VkExtent2D){(uint32_t)plat_win_width(g_win), (uint32_t)plat_win_height(g_win)};
     VkSurfaceTransformFlagBitsKHR pre = caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR ? VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR : caps.currentTransform;
     VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     // Pre-rotation: the surface's own rotation, when the swapchain can take it and the rotated copy is ready
@@ -683,7 +686,7 @@ static int swap_create(void) {
         && rot_wanted() && rot_ready(pick.format)) pre = caps.currentTransform;
     // The extent: the window's own size (the picture as the user sees it), turned for a quarter-turn preTransform. currentExtent is in the panel's orientation on phones but
     // already in the window's on the emulator (gfxstream), so the window's size decides, and currentExtent is only the fallback
-    int ww = ANativeWindow_getWidth(g_win), wh = ANativeWindow_getHeight(g_win);
+    int ww = plat_win_width(g_win), wh = plat_win_height(g_win);
     if (ww > 0 && wh > 0) ext = rot_quarter(pre) ? (VkExtent2D){(uint32_t)wh, (uint32_t)ww} : (VkExtent2D){(uint32_t)ww, (uint32_t)wh};
     else if (rot && !rot_quarter(pre)) ext = (VkExtent2D){ext.height, ext.width};
     if (!ext.width || !ext.height) return 0;
@@ -722,14 +725,22 @@ static int swap_create(void) {
     return 1;
 }
 static void window_take(void) {   // g_pmu held
-    ANativeWindow *w = g_win_new; uint64_t gen = g_win_gen; g_win_new = NULL;
+    plat_win_t *w = g_win_new; uint64_t gen = g_win_gen; g_win_new = NULL;
     pthread_mutex_unlock(&g_pmu);
     swap_destroy(1);
-    if (g_win) ANativeWindow_release(g_win);
+    if (g_win) plat_win_release(g_win);
     g_win = w; g_fps_set = 0;
-    if (w && V.has_android_surface) {
+    if (w && V.has_surface) {
+#if defined(__ANDROID__)
         VkAndroidSurfaceCreateInfoKHR si = {VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR, .window = w};
-        VkResult r = vk.vkCreateAndroidSurfaceKHR(V.inst, &si, NULL, &g_surf); VkBool32 ok = VK_FALSE;
+        VkResult r = vk.vkCreateAndroidSurfaceKHR(V.inst, &si, NULL, &g_surf);
+#elif defined(__linux__) && defined(__aarch64__)
+        VkWaylandSurfaceCreateInfoKHR si = {VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR, .display = w->display, .surface = w->surface};
+        VkResult r = vk.vkCreateWaylandSurfaceKHR(V.inst, &si, NULL, &g_surf);
+#else
+        VkResult r = VK_ERROR_EXTENSION_NOT_PRESENT;
+#endif
+        VkBool32 ok = VK_FALSE;
         if (!r) vk.vkGetPhysicalDeviceSurfaceSupportKHR(V.pd, V.qf, g_surf, &ok);
         if (r || !ok) { VRED("surface on window %p: %d, present support %d", (void *)w, r, ok); if (!r) vk.vkDestroySurfaceKHR(V.inst, g_surf, NULL); g_surf = VK_NULL_HANDLE; }
         else swap_create();
@@ -770,7 +781,7 @@ static void timing_poll(void) {
 // Without pre-rotation, a rotation alone stays: Android reports every frame suboptimal then, and the compositor rotates
 static void suboptimal(void) {
     if (!g_win || g_recreate) return;
-    uint32_t ww = (uint32_t)ANativeWindow_getWidth(g_win), wh = (uint32_t)ANativeWindow_getHeight(g_win);
+    uint32_t ww = (uint32_t)plat_win_width(g_win), wh = (uint32_t)plat_win_height(g_win);
     uint32_t ew = rot_quarter(g_pre) ? g_ext.height : g_ext.width, eh = rot_quarter(g_pre) ? g_ext.width : g_ext.height;
     if ((ww != ew || wh != eh) && (ww != eh || wh != ew)) { g_recreate = 1; return; }
     if (g_rot.state < 0 || !rot_wanted()) return;
@@ -796,10 +807,14 @@ static void frame_rate(double period) {
         fps = top;
     }
     if (fps == g_fps_set) return;
+#if defined(__ANDROID__)
     static int (*set_rate)(ANativeWindow *, float, int8_t); static int looked;   // libnativewindow (API 30), not linked: -landroid does not carry it
     if (!looked) { looked = 1; void *h = dlopen("libnativewindow.so", RTLD_NOW); if (h) set_rate = (int (*)(ANativeWindow *, float, int8_t))dlsym(h, "ANativeWindow_setFrameRate"); }
     int r = set_rate ? set_rate(g_win, (float)fps, ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_FIXED_SOURCE) : -1;
     VLOG("window frame rate %d fps%s", fps, r ? " (not taken)" : "");
+#else
+    VLOG("window frame rate %d fps (hint; Wayland compositor decides)", fps);
+#endif
     g_fps_set = fps; g_refresh_n = 1;   // the panel may switch within a few frames
 }
 void vka_present_rates(int *fps, double *hz) { if (fps) *fps = g_fps_set; if (hz) *hz = g_refresh_ns ? 1e9 / (double)g_refresh_ns : 0; }   // the pace line (vka_perf.c)

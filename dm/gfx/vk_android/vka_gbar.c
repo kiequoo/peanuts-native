@@ -7,7 +7,7 @@
 // and clears inside a pass (a pass begins with a work command, which settles anything pending), are not wrapped. Commands into any other command buffer, or from any other
 // thread, pass straight through.
 // DM_VK_BAR_NARROW=0 (live) records every game barrier as a full barrier at once, as before.
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_gbar.h"
 #include <stdio.h>

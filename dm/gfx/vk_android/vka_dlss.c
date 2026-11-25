@@ -11,7 +11,7 @@
 // Both end in a 1:1 blit of an RGBA16F work image into the output texture. DM_VK_DLSS_SHARP (0..100, default 15) is RCAS's strength; DM_VK_DLSS_JX / _JY and
 // DM_VK_GSR2_MV are the jitter's and the motion vectors' signs. Every switch is read at every evaluation; DM_VK_GPUPROF lists the passes.
 // 0 = not done (no push descriptors, a pipeline or work image failed, no depth or motion for GSR2, the output format cannot be blitted): the caller's bilinear blit
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_dlss_fsr.h"
 #include "gsr2/vka_gsr2_spv.h"

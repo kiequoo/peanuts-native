@@ -1,6 +1,6 @@
 // The Vulkan device of the replay: instance, the one queue, the timeline that fences submissions, the completion thread that runs their CPU-side effects, and scratch memory.
 // Feature and extension choices follow the probe of android/spike (results/honor-pnm-n49.md): placed memory maps, buffer device addresses, update-after-bind arrays, display timing
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <dlfcn.h>
 #include <sys/mman.h>
@@ -137,7 +137,11 @@ static int init_once(void) {
     uint32_t ne = 0; vk.vkEnumerateInstanceExtensionProperties(NULL, &ne, NULL);
     VkExtensionProperties *ie = calloc(ne ? ne : 1, sizeof *ie); vk.vkEnumerateInstanceExtensionProperties(NULL, &ne, ie);
     const char *iext[4]; uint32_t niext = 0;
-    if (has_ext(ie, ne, VK_KHR_SURFACE_EXTENSION_NAME) && has_ext(ie, ne, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME)) { iext[niext++] = VK_KHR_SURFACE_EXTENSION_NAME; iext[niext++] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME; V.has_android_surface = 1; }
+#if defined(__ANDROID__)
+    if (has_ext(ie, ne, VK_KHR_SURFACE_EXTENSION_NAME) && has_ext(ie, ne, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME)) { iext[niext++] = VK_KHR_SURFACE_EXTENSION_NAME; iext[niext++] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME; V.has_surface = 1; }
+#elif defined(__linux__) && defined(__aarch64__)
+    if (has_ext(ie, ne, VK_KHR_SURFACE_EXTENSION_NAME) && has_ext(ie, ne, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) { iext[niext++] = VK_KHR_SURFACE_EXTENSION_NAME; iext[niext++] = VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME; V.has_surface = 1; }
+#endif
     free(ie);
     const char *layer = "VK_LAYER_KHRONOS_validation"; uint32_t nlayer = 0;
     const char *ve = getenv("DM_VK_VALIDATE");

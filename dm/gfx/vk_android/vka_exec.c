@@ -3,7 +3,7 @@
 // Vulkan command buffer (mtl_sub_begin → mtl_exec per handle → mtl_sub_commit), as nvn_mtl.m does into Metal. This milestone covers what a first frame needs: render targets,
 // colour / depth-stencil / texture clears, buffer and texture copies, inline updates and fills, barriers, events, counters and fences. Draws and dispatches log once and are skipped
 // until the shader side lands. Every transfer op is followed by a full memory barrier: correct, not fast
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "../nvn/nvn_mtl.h"
 #include "../nvn/nvn_timestamp.h"

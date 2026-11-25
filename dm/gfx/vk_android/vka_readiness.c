@@ -3,7 +3,7 @@
 // same driver the replay loads (DM_VK_DRIVER through vka_driver_open, else the system's libvulkan.so) and the same physical device (the first, as vka_dev.c takes).
 // PEANUTS: a temporary device checks guest-buffer mapping and is destroyed before the replay's own vka_init. Nothing here decides: the facts are "key=value" lines
 // whose keys the profiles' readiness.tsv rows name (dm/games/README.md "Readiness rows"), and a key the driver does not report is simply absent (it reads as missing)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <dlfcn.h>
 #include <stdarg.h>

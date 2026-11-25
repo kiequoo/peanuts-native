@@ -235,7 +235,7 @@ static void read_layout(module_t *m, const char *dir) {
     FILE *f = fopen(path, "r");
     if (!f) die("open %s", path);
     static const char *kn[KEY_N] = {"K18", "KTLS", "KTLR", "KGATE"};
-    char line[256], key[48]; unsigned long v; unsigned seen = 0, android = 0;
+    char line[256], key[48]; unsigned long v; unsigned seen = 0, android = 0, linux_target = 0;
     while (fgets(line, sizeof line, f)) {
         if (sscanf(line, "# %47s %lx", key, &v) != 2) die("%s: the output comes from an old rewriter; rewrite the modules again with dm/tools/patch_nso.py", path);
         if (!strcmp(key, "PATCH_OFF")) m->patch_off = strtoll(line + 2 + strlen(key), NULL, 16);   // may be negative (patch area before the base)
@@ -260,6 +260,7 @@ static void read_layout(module_t *m, const char *dir) {
         }
         else if (!strcmp(key, "BUILD_ID")) sscanf(line, "# %*s %32s", m->build_id);
         else if (!strcmp(key, "TARGET_ANDROID")) android = v != 0;   // patch_nso.py --target android: the slot base the rewritten code reads (plat.h "Guest thread slots")
+        else if (!strcmp(key, "TARGET_LINUX")) linux_target = v != 0;  // patch_nso.py --target linux: TPREL slots via g_slots_linux (plat_linux.c)
         else for (int k = 0; k < KEY_N; k++) {
             size_t n = strlen(kn[k]);
             if (!strncmp(key, "KEY_", 4) && !strncmp(key + 4, kn[k], n) && !strcmp(key + 4 + n, "_IDX")) {
@@ -268,7 +269,10 @@ static void read_layout(module_t *m, const char *dir) {
         }
     }
     fclose(f);
-    if ((int)android != PLAT_ANDROID) die("%s: rewritten for %s, this host runs on %s: rewrite the modules with dm/tools/patch_nso.py%s", path, android ? "Android" : "Apple", PLAT_ANDROID ? "Android" : "Apple", PLAT_ANDROID ? " --target android" : "");
+    { const char *tnames[] = {"Apple", "Android", "Linux"};
+      const char *thints[] = {"", " --target android", " --target linux"};
+      int want = linux_target ? 2 : (int)android, have = PLAT_LINUX ? 2 : PLAT_ANDROID;
+      if (want != have) die("%s: rewritten for %s, this host runs on %s: rewrite the modules with dm/tools/patch_nso.py%s", path, tnames[want], tnames[have], thints[have]); }
     if (!m->patch_off || m->key_page_off % 0x4000 || m->key_page_size != 0x4000 || seen != (1u << KEY_N) - 1)
         die("%s: the output comes from an old rewriter; rewrite the modules again with dm/tools/patch_nso.py", path);
     if (m->patch_off < 0 && (!m->image_size || !m->file_image_len || m->file_image_len % 0x4000 || m->patch_off % 0x4000 || m->key_page_off + m->key_page_size > m->image_size))

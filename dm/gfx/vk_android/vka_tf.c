@@ -14,7 +14,7 @@
 // control buffer in nvn_feedback.h's form, which nvnCommandBufferDrawTransformFeedback's indirect draw reads (hle_nvn.c).
 // Whatever cannot be captured (no extension, DM_VK_XFB=0, a layout or module the rewrite does not take, another kind of draw) logs its reason once and the draw is made
 // as before this file: skipped under rasterizer discard, else drawn without capture
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka_tf.h"
 #include <stdio.h>
 #include <stdlib.h>

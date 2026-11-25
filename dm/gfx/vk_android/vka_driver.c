@@ -119,4 +119,9 @@ static void *driver_open(void) {
     VLOG("custom GPU driver: %s%s (hooks in %s), pipeline cache vk_pipelines-%s" VKA_PCACHE_GEN ".bin", dir, name, hook, g_tag);
     return lib;
 }
+#elif defined(__linux__) && defined(__aarch64__)
+// Linux: no libadrenotools; always use the system libvulkan.so. DM_VK_DRIVER is not supported (restart-only anyway; Turnip is the system driver on Armada).
+#include "vka.h"
+void *vka_driver_open(void) { return NULL; }
+const char *vka_driver_tag(void) { return NULL; }
 #endif

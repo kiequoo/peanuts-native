@@ -3,7 +3,7 @@
 // into the pool, signal an event, and the texture is presented every frame. The draw and the dispatch go through the whole draw path: a shader library made here in memory
 // (three small shaders written for the library's descriptor ABI, selftest/*.vert / .frag / .comp, not game code), programs, vertex attributes and streams, a uniform buffer,
 // a texture and a sampler registered in the pools, the binding walker, set 0, pipelines, the render pass; for the dispatch a storage buffer and the driver segment c0
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vk_android.h"
 #include "vka_selftest_spv.h"
@@ -99,8 +99,12 @@ static int streamed_mip_test(uint8_t *cmd, uint8_t *rb) {
     return !ok;
 }
 
-int nxhost_vk_selftest(ANativeWindow *w, int frames) {
-    if (w) nxhost_set_window(w);
+#if defined(__ANDROID__)
+int nxhost_vk_selftest(struct ANativeWindow *win, int frames) {
+#else
+int nxhost_vk_selftest(void *win, int frames) {
+#endif
+    if (win) nxhost_set_window(win);
     if (!vka_init()) { VRED("selftest: no Vulkan device"); return 1; }
     int bad = 0;
     size_t sz = 64u << 20;

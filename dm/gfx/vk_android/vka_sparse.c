@@ -13,7 +13,7 @@
 // bound before the copies that fill them and the draws that read them. A batch that fails keeps its binds (and the slots its unbinds free) for the next one. A slot unbound is reused only by a later batch; a tile block is freed once empty and the batch that emptied it has run. No aliasing (a slot is one tile of one image):
 // the phone has no sparseResidencyAliased.
 // DM_VK_SPARSE_RES=0: dense images as before (read once)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <stdlib.h>
 

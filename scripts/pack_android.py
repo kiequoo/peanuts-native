@@ -690,8 +690,8 @@ def pn_reuse():   # PEANUTS: dm/peanuts/reuse/rewrite_reuse.py (issue #120)
     return rewrite_reuse
 
 
-def rewrite(py, srcs, out, jobs, g, in_process=False, xmod=None):
-    """patch_nso.py --target android on each module into out (each its own <module>.* files); a module whose key file matches is kept. Each module is
+def rewrite(py, srcs, out, jobs, g, in_process=False, xmod=None, target='android'):
+    """patch_nso.py --target <target> on each module into out (each its own <module>.* files); a module whose key file matches is kept. Each module is
     rewritten into a staging folder and swapped in when it is complete (swap_in), so a run stopped part way never leaves new code with old tables.
     in_process: each in this process (run_in_process) with one worker, one module after the other.
     PEANUTS: xmod = {module: layout file} (cross_module, a build with code mods): those modules are rewritten with --xmod and keyed with the file (xmod_keys)"""
@@ -732,8 +732,8 @@ def rewrite(py, srcs, out, jobs, g, in_process=False, xmod=None):
             print(f'  {m}: rewriting {src} (in process)', flush=True)
             t0 = time.monotonic()
             width = 1000 * size[m] // total
-            rc = pn_rewrite_worker(REPO / 'dm/tools/patch_nso.py', [str(files[m]), staging(out, m), m, '--target', 'android', *xargs(m)], {'DM_GAME': g.id}, out / f'rewrite_{m}.log', (base, width))   # PEANUTS: on the fast cores (issue #120)
-            if rc is None: rc = run_in_process(REPO / 'dm/tools/patch_nso.py', [str(files[m]), staging(out, m), m, '--target', 'android', *xargs(m)], {'DM_GAME': g.id, 'DM_REWRITE_J': '1'}, out / f'rewrite_{m}.log', (base, width))   # PEANUTS: xargs; pn_rewrite_worker
+            rc = pn_rewrite_worker(REPO / 'dm/tools/patch_nso.py', [str(files[m]), staging(out, m), m, '--target', target, *xargs(m)], {'DM_GAME': g.id}, out / f'rewrite_{m}.log', (base, width))   # PEANUTS: on the fast cores (issue #120)
+            if rc is None: rc = run_in_process(REPO / 'dm/tools/patch_nso.py', [str(files[m]), staging(out, m), m, '--target', target, *xargs(m)], {'DM_GAME': g.id, 'DM_REWRITE_J': '1'}, out / f'rewrite_{m}.log', (base, width))   # PEANUTS: xargs; pn_rewrite_worker
             if rc:
                 tail = (out / f'rewrite_{m}.log').read_text(errors='replace').splitlines()[-20:]
                 raise Error(f'patch_nso.py exit code {rc} on {m}:\n' + '\n'.join(tail))
@@ -755,7 +755,7 @@ def rewrite(py, srcs, out, jobs, g, in_process=False, xmod=None):
                 m = pending.pop(0); kf = out / f'{m}.android.key'; kf.unlink(missing_ok=True); shutil.rmtree(staging(out, m), ignore_errors=True)
                 print(f'  {m}: rewriting {todo[m][0]}', flush=True)
                 log = open(out / f'rewrite_{m}.log', 'w')
-                procs[m] = (subprocess.Popen([py, str(REPO / 'dm/tools/patch_nso.py'), str(files[m]), str(staging(out, m)), m, '--target', 'android', *xargs(m)], env=dict(env, DM_REWRITE_J=str(share[m])), stdout=log, stderr=subprocess.STDOUT), log)   # PEANUTS: xargs
+                procs[m] = (subprocess.Popen([py, str(REPO / 'dm/tools/patch_nso.py'), str(files[m]), str(staging(out, m)), m, '--target', target, *xargs(m)], env=dict(env, DM_REWRITE_J=str(share[m])), stdout=log, stderr=subprocess.STDOUT), log)   # PEANUTS: xargs
             for m in list(procs):
                 p, log = procs[m]
                 if p.poll() is None: continue
@@ -777,7 +777,7 @@ def variants(g):
     return [(v[0], (v[1] if len(v) > 1 and v[1] else 'main').replace(',', ' ').split()) for v in g.values('variant') if v and v[0]]
 
 
-def rewrite_variants(py, srcs, out, g, in_process=False, modded=()):   # PEANUTS: modded
+def rewrite_variants(py, srcs, out, g, in_process=False, modded=(), target='android'):   # PEANUTS: modded
     """Each variant row's modules rewritten again with DM_PATCH_VARIANT=<name> (patch_nso.py VARIANT_CUTS: a game's native 4:3 mod) into out/<name>/,
     keyed '<the module's rewrite_key> variant=<name>' (the launcher's PackCheck checks it the same way); a module whose key matches is kept. Both versions
     stay in the pack, so the launcher's Game settings › Aspect ratio switches between them without another Prepare: the host loads a module from
@@ -793,7 +793,7 @@ def rewrite_variants(py, srcs, out, g, in_process=False, modded=()):   # PEANUTS
             kf.unlink(missing_ok=True); shutil.rmtree(staging(vout, m), ignore_errors=True)
             print(f'  {m} ({v}): rewriting', flush=True)
             t0, src, log = time.monotonic(), rewriter_src(srcs[m], out, m), vout / f'rewrite_{m}.log'
-            args = [str(src), str(staging(vout, m)), m, '--target', 'android']
+            args = [str(src), str(staging(vout, m)), m, '--target', target]
             if in_process:
                 rc = pn_rewrite_worker(REPO / 'dm/tools/patch_nso.py', args, {'DM_GAME': g.id, 'DM_PATCH_VARIANT': v}, log)   # PEANUTS: on the fast cores, as the module's first rewrite (issue #120)
                 if rc is None: rc = run_in_process(REPO / 'dm/tools/patch_nso.py', args, {'DM_GAME': g.id, 'DM_REWRITE_J': '1', 'DM_PATCH_VARIANT': v}, log)
@@ -1172,7 +1172,7 @@ def place_cheats(g, out):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='Pack a dumped game for the Android launcher: its code modules rewritten with --target android, no RomFS')
+    ap = argparse.ArgumentParser(description='Pack a dumped game: its code modules rewritten with patch_nso.py --target <target>, no RomFS')
     ap.add_argument('game', type=Path, help='the game folder (base/exefs, base/romfs or an update\'s romfs, updates/<version>/, dlc/), or a .nup file')
     ap.add_argument('--version', type=int, help='the update version to pack (default: the newest in updates/; 0 = the base game)')
     ap.add_argument('--program', type=int, default=0, help='pack program n > 0 of a dump folder (a Switch 2 Edition\'s program 1: updates/<version>/program/1/ in the console\'s layout) instead of the game '
@@ -1187,6 +1187,7 @@ def main():
     ap.add_argument('--code-only', action='store_true', help='only rewrite the modules (the phone\'s rewrite step): pack.tsv, game.tsv and the shaders stay as they are')
     ap.add_argument('--keep-code', action='store_true', help='do not rewrite: the pack\'s modules must be there with their key files (the phone\'s pack step)')
     ap.add_argument('--made-by', help='who makes this pack, written as its made_by row (the phone\'s pack step: "app <version>"; the launcher then updates the pack\'s code by itself when only the tools changed)')
+    ap.add_argument('--target', default='android', choices=('android', 'linux'), help='rewrite target: android (default, for the Android launcher) or linux (for dmhost-linux on arm64 Linux, e.g. Odin 3 / Armada OS)')
     ap.add_argument('--in-process', action='store_true', help='run the rewriter in this process, no subprocesses (the phone\'s packer); the shader library must be current or left out')
     # PEANUTS begin: code mods (DESIGN-MODS.md), a modded variant build (dev.peanuts.build.ModdedBuild composes these from ModBuild.Plan). None given: this
     # function behaves exactly as before - no mod ever changes a normal pack's modules, sources or build.
@@ -1308,10 +1309,10 @@ def main():
             work = folder.parent / f'{app:016X}-work'
             nros = collect_nros(exe, romfs, work, a.in_process)
             try:
-                rewrite(sys.executable, srcs | nros, out, max(1, a.j), g, a.in_process, xmod_files)   # PEANUTS: xmod_files
+                rewrite(sys.executable, srcs | nros, out, max(1, a.j), g, a.in_process, xmod_files, a.target)   # PEANUTS: xmod_files
                 for _m, _src in (srcs | nros).items():   # PEANUTS: what each module was made from, for the next build's rewrite_reuse.keep (issue #120)
                     if _m not in (xmod_files or {}): pn_reuse().record(_m, _src, out, g, REWRITER)
-                rewrite_variants(sys.executable, srcs, out, g, a.in_process, set(mod_exefs) | set(patched))   # game.tsv variant rows (a native 4:3 mod) into <pack>/<variant>/; PEANUTS: none of a mod's modules
+                rewrite_variants(sys.executable, srcs, out, g, a.in_process, set(mod_exefs) | set(patched), a.target)   # game.tsv variant rows (a native 4:3 mod) into <pack>/<variant>/; PEANUTS: none of a mod's modules
             finally: shutil.rmtree(out / '.nup-src', ignore_errors=True)   # the module copies a NUP game's rewrite read (rewriter_src)
             place_nros(work / 'android-nro' if nros else None, out)
         if a.code_only: print(f'done: the modules in {out} (--code-only: pack.tsv and the shaders unchanged)'); return
@@ -1326,7 +1327,7 @@ def main():
         ready = variant_overlays(g, romfs, out, ids)   # PEANUTS: complete variants and their game data (pack.tsv variant rows)
         top = folder.parent if pack_dump.nup.is_nup(folder) else folder   # a NUP file's paths are `<name>.nup:<package>/...`, relative to its folder
         rel = lambda p: p.relative_to(top).as_posix()
-        rows = [('format', str(FORMAT)), ('title_id', f'{app:016X}'), ('name', g.get('name', '')), ('version', str(ver)), ('target', 'android'),
+        rows = [('format', str(FORMAT)), ('title_id', f'{app:016X}'), ('name', g.get('name', '')), ('version', str(ver)), ('target', a.target),
                 # PEANUTS: a module a mod supplies is listed as mod_build, not build: the launcher compares every build row with the game's own file of that name
                 # (BuildCheck.build), which an added module does not have and a replaced one differs from, and would refuse to start the pack
                 ('modules', ' '.join(mods)), *[('mod_build' if m in mod_exefs else 'build', f'{m}={ids[m]}') for m in mods], ('romfs', rel(romfs)),

@@ -7,7 +7,7 @@
 // From API 35 the report also carries the frame's GPU time (APerformanceHint_reportActualWorkDuration2, AWorkDuration_setActualGpuDurationNanos): the GPU's governor sees
 // the frame's GPU work against the target instead of only its busy percentage (on the SM8850 phone the same replayed frame took 35 ms of GPU time right after a busy
 // stretch and 94-98 ms after 2.6 s of idle GPU: its clock follows load). DM_VK_ADPF_GPU=0 (live) reports CPU time only
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <dlfcn.h>
 #include <stdlib.h>

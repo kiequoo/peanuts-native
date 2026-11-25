@@ -7,7 +7,7 @@
 // prewarm list keep them), the arena the converted modules write into (device-local, one per submission in flight, grown when a submission asked for more), and the
 // helper passes (memu/memu_setup.comp, memu/memu_dist.comp). The batches of a pass's draws are vka_draw.c's (vka_memu_draw.inc); the look-ahead that finds them is
 // vka_exec.c's memu_scan. GPL-3.0-or-later: see vka_memu_abi.h.
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_memu.h"
 #include "vka_memu_abi.h"

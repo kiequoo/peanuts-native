@@ -1,23 +1,30 @@
-// The NVN → Vulkan replay on Android: what the launcher calls (android/PORTING.md "NVN → Vulkan replay").
+// The NVN → Vulkan replay: what the launcher calls (android/PORTING.md "NVN → Vulkan replay"; linux/PORTING.md for the Linux front end).
+// On Android the window is an ANativeWindow; on Linux it is a plat_win_t (struct holding wl_display + wl_surface, front_linux_main.c).
+// The API uses void * on non-Android platforms to avoid pulling platform headers into every caller.
 #pragma once
 #include <stdint.h>
-
-struct ANativeWindow;
 
 // PEANUTS: Startup pipeline prewarm. Progress is -1 before the phase is decided, 0 after it, or total (high 32 bits) and processed (low 32) while waiting.
 void vka_pso_prepare_launch(void);
 __attribute__((visibility("default"))) int64_t nxhost_prewarm_progress(void);
 __attribute__((visibility("default"))) void nxhost_prewarm_skip(void);   // PEANUTS: Play anyway on the Preparing shaders screen (vka_pso.c)
 
-// The surface to present to: the launcher calls it from any thread, before or after nxhost_main, again with every new surface (surfaceCreated / surfaceChanged) and with NULL when the
-// surface goes (surfaceDestroyed, before it returns). The replay holds its own reference (ANativeWindow_acquire) until the next call. Without a window, presents are counted and dropped
+// The surface to present to: the launcher calls it from any thread, before or after nxhost_main, again with every new surface and with NULL when the surface goes.
+// Android: w is ANativeWindow *; Linux: w is plat_win_t * (front_linux_main.c); the replay holds its own reference until the next call.
+// Without a window, presents are counted and dropped.
+#if defined(__ANDROID__)
+struct ANativeWindow;
 __attribute__((visibility("default"))) void nxhost_set_window(struct ANativeWindow *w);
+__attribute__((visibility("default"))) int nxhost_vk_selftest(struct ANativeWindow *w, int frames);
+#else
+__attribute__((visibility("default"))) void nxhost_set_window(void *w);
+__attribute__((visibility("default"))) int nxhost_vk_selftest(void *w, int frames);
+#endif
 // PEANUTS: Android Display.getPresentationDeadlineNanos queue lead; zero means unavailable. Callable before or after host start.
 __attribute__((visibility("default"))) void nxhost_presentation_deadline_set(uint64_t ns);
 // No game needed: sets the window, then clears a texture in placed guest memory to a colour through the NVN replay (records, submit, fence), reads two texels back through a
 // texture→buffer copy, and presents it for frames frames (the colour goes round the hues every 6 s). Returns 0 when every step worked; the log lines start with "[vk] selftest".
 // Also run when NXHOST_VK_SELFTEST=<frames> is set at the first nxhost_set_window, on a thread of its own
-__attribute__((visibility("default"))) int nxhost_vk_selftest(struct ANativeWindow *w, int frames);
 // The overlay's frame rate (vka_fps.c), for the launcher to draw over the game: out[0] game frames presented a second, out[1] images presented a second (with frame generation
 // on, the game's and the generated ones), out[2] the game's frame time in ms, out[3] frame generation (0 off, 1 generating, 2 on and not generating, -1 unavailable),
 // out[4] images per game frame, out[5] the GPU's busy time a game frame in ms, averaged over recent frames (-1: no GPU timestamps; only computed when n > 5).

@@ -4,7 +4,7 @@
 // every other texture starts cleared to zero and is GPU content from then on (render targets, copy destinations), as nvn_mtl.m's private textures are.
 // Images are found by the texture's serial (the game copies texture objects by value). A texture over the same storage and shape as a live one shares its image, so a clear through
 // one object and a present through another meet. Every image stays in VK_IMAGE_LAYOUT_GENERAL after its first use: no layout tracking until the draw path needs it
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_poolslot.h"
 #include "../nvn/nvn_mtl.h"

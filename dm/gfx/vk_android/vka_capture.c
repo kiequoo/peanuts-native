@@ -7,7 +7,7 @@
 //   DM_NVN_CAPTURE=<frame>:1:<path>      the frame-th present (counted from the first, as DM_NVN_SHOT counts them)
 //   DM_NVN_CAPTURE=@<seconds>:1:<path>   the first frame that starts after that many seconds of the host's run (scripted runs on the phone, whose frame rate varies)
 // The path's folder is made when missing. A capture is game data: it stays on the phone or in the game's work folder, never in the repository
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka_capture.h"
 #include "../nvn/nvn_hmap.h"
 #include "../../host/plat/plat.h"

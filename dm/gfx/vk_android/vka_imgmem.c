@@ -10,7 +10,7 @@
 // Lifetime: as before, an image's memory is given back in img_destroy, which runs once the GPU is done with the image (vka_after), after vkDestroyImage. A block with no image
 // left is freed, except one empty block a memory type keeps for the next images. The 64 MiB vkAllocateMemory runs outside the lock (other threads' allocations and frees go on).
 // Large never-written GPU-content images instead alias one zeroed allocation per create info (vka_imem_bind_zero; vka_tex.c "Zero-shared images")
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_extents.h"
 #include "vka_zshare.h"

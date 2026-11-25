@@ -11,7 +11,7 @@
 // inside on a tiler (its draws run bin by bin), so this is the per-draw split. Each split adds the pass's load and store (and on a tiler a binning pass) to its step: the
 // report takes the cheapest step of each pass shape as that overhead (the floor) and gives each draw key its time above it ("gpu prof split:" lines, by vertex / pixel
 // key pair and by pixel key). The profiled frame then costs far more than the others (thousands of passes); its relative split is what counts
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <stdlib.h>
 #include <string.h>

@@ -53,7 +53,7 @@ ARGS = sys.argv[1:]
 TARGET = 'apple'
 if '--target' in ARGS:
     ti = ARGS.index('--target')
-    if ti + 1 >= len(ARGS) or ARGS[ti + 1] not in ('apple', 'android'): sys.exit('[RED] --target takes apple or android')
+    if ti + 1 >= len(ARGS) or ARGS[ti + 1] not in ('apple', 'android', 'linux'): sys.exit('[RED] --target takes apple, android, or linux')
     TARGET = ARGS[ti + 1]; del ARGS[ti:ti + 2]
 # PEANUTS: --xmod <file> (scripts/pack_android.py, for a module of a build with code mods; "Cross-module branches" near the end of this file). Without it nothing below differs
 XMOD = None
@@ -61,7 +61,7 @@ if '--xmod' in ARGS:
     xi = ARGS.index('--xmod')
     if xi + 1 >= len(ARGS): sys.exit('[RED] --xmod takes the layout file')
     XMOD = ARGS[xi + 1]; del ARGS[xi:xi + 2]
-if len(ARGS) != 3: sys.exit('usage: patch_nso.py <NSO file> <output dir> <module name> [--target apple|android]')
+if len(ARGS) != 3: sys.exit('usage: patch_nso.py <NSO file> <output dir> <module name> [--target apple|android|linux]')
 src, outdir, NAME = ARGS
 # An NSO, or an NRO (a module the game loads at run time with nn::ro, Super Smash Bros. Ultimate's fighter code), rewritten as an NSO of the same layout would be. nso.py checks the file
 # against its header before anything is allocated (a damaged module stops here with a [RED] line)
@@ -275,8 +275,9 @@ def emit_key_addr(reg, kind):
     fix.append((len(patch), kind)); emit(ADRP(reg, here(), KEY_PAGE_OFF)); emit(LDRX(reg, reg, KEY_INDEX[kind]))
 
 def emit_tp(reg):
-    """reg = this thread's slot base (Targets above): mrs tpidrro_el0, or on android mrs tpidr_el0; ldr reg,[reg,#0x10]"""
+    """reg = this thread's slot base (Targets above): mrs tpidrro_el0 (apple), mrs tpidr_el0 + ldr [+0x10] (android), mrs tpidr_el0 only (linux: slot base is tpidr_el0 itself, key page holds TPREL offsets)"""
     if TARGET == 'android': emit(MRS_TPIDR(reg)); emit(LDRX(reg, reg, 2))
+    elif TARGET == 'linux': emit(MRS_TPIDR(reg))
     else: emit(MRS_TPIDRRO(reg))
 
 def emit_slot_addr(base, key_reg, kind):
@@ -1997,7 +1998,8 @@ with open(P('fixups.tsv'), 'w', encoding='utf-8', newline='\n') as f:
     if FAR: f.write(f'# IMAGE_SIZE\t{IMAGE_SIZE:#x}\n# FILE_IMAGE_LEN\t{FILE_IMAGE_LEN:#x}\n')   # patch area before the base (negative PATCH_OFF): whole image size, length of the image part of the file
     if TWO: f.write(f'# BACK_OFF\t{BACK_OFF:#x}\n# BACK_LEN\t{BACK_LEN:#x}\n')   # the back patch area (TWO): its offset in the image, and its length, the last bytes of the file
     for k in KEY_INDEX: f.write(f'# KEY_{k}_IDX\t{KEY_INDEX[k]}\n')
-    if TARGET == 'android': f.write('# TARGET_ANDROID\t1\n')   # the slot base of Targets above: an Apple host refuses this module, an Android host every other
+    if TARGET == 'android': f.write('# TARGET_ANDROID\t1\n')   # the slot base of Targets above: Apple/Linux hosts refuse this module
+    elif TARGET == 'linux': f.write('# TARGET_LINUX\t1\n')    # Linux TPREL slots (plat_linux.c g_slots_linux): Android/Apple hosts refuse this module
     if FS_STATE_OFF: f.write(f'# FPS_STATE_OFF\t{FS_STATE_OFF:#x}\n')   # frame step state page (FRAME_STEP): the loader writes the target fps there
     if OOT_PATCHES: f.write('# OOT_PATCHES\t1\n')
     if UE_CALLS: f.write(f'# UE_MALLOC_VT\t{UE_VT:#x}\n# UE_MALLOC_SLOT\t{UE_SLOT:#x}\n')   # PEANUTS: UE_CALLS. Unreal's FMallocBinned3 (ue_malloc.py): its vtable and the slot of its name getter, which names the slot layout

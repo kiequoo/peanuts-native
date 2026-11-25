@@ -6,7 +6,7 @@
 // Lossless.dll (the launcher finds it and passes DM_LSFG_DLL) is read once. Without NX_LSFG (a build without the GPL folder) every call reports "not in this build".
 // Settings: DM_LSFG=1, DM_LSFG_MULT=2..4, DM_LSFG_TARGET=0|fps, DM_LSFG_FLOW=0 (auto: the optical flow at the game's own resolution) or 25..100 (%), changed while running by
 // nxhost_framegen_set (the launcher's in-game settings)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vk_android.h"
 #include <stdio.h>
