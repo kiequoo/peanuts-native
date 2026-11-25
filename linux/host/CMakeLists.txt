@@ -136,3 +136,11 @@ add_executable(selftest_launcher selftest_main.c)
 target_include_directories(selftest_launcher PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(selftest_launcher PRIVATE dmhost ${SDL2_LIBRARIES})
 target_compile_options(selftest_launcher PRIVATE -O1 -g -Wall -Wno-unused-function -Wno-format)
+
+# --- dmhost-linux: full game launcher (Stage 3) ---
+# Includes dm/host/main.c (which defines g_flag / g_t0_ns and host_preload) alongside
+# dmhost_main.c (the SDL2 window + input pump).
+add_executable(dmhost-linux dmhost_main.c ${HOST}/main.c)
+target_include_directories(dmhost-linux PRIVATE ${SDL2_INCLUDE_DIRS} ${PROFILE_INC})
+target_link_libraries(dmhost-linux PRIVATE dmhost ${SDL2_LIBRARIES})
+target_compile_options(dmhost-linux PRIVATE -O1 -g -Wall -Wno-unused-function -Wno-format)
