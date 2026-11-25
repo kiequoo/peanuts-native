@@ -1,0 +1,16 @@
+# Shaders present in v65536 (1.1.0) but absent from v0 (1.0.0) dumps.
+# 14 keys: allowing them to be absent lets a v0 dump build a complete library.
+1548c030f6ce8c6c
+1762ff748e554290
+2632010dd4d395c3
+291fcd9e062efbd1
+38bc28ac0085b6be
+5c43037049257246
+5de6e5dc52a56300
+66e309f72940e12b
+73a7c1b5c945dd61
+758e4d7b7e542091
+80e1cac0e23453c2
+82e30527b927d071
+aaead17289f689b8
+c406c11be7d03005
