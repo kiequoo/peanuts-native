@@ -5,6 +5,7 @@
 // until the shader side lands. Every transfer op is followed by a full memory barrier: correct, not fast
 #if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
+#include "vka_tf.h"
 #include "../nvn/nvn_mtl.h"
 #include "../nvn/nvn_timestamp.h"
 #include "vka_present_rot.h"

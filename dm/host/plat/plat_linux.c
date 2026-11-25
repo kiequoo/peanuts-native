@@ -218,7 +218,8 @@ void plat_slot_check(uint64_t off) {
 }
 
 // ---- Threads ----
-plat_thread_t plat_thread_of(pthread_t t) { return (plat_thread_t)pthread_gettid_np(t); }
+/* pthread_gettid_np requires glibc headers ≥ 2.30; use gettid() — callers always pass pthread_self() */
+plat_thread_t plat_thread_of(pthread_t t) { (void)t; return (plat_thread_t)gettid(); }
 plat_thread_t plat_thread_self(void) { return (plat_thread_t)gettid(); }
 void plat_thread_self_release(plat_thread_t t) { (void)t; }
 void plat_thread_set_name(const char *name) { char b[16]; snprintf(b, sizeof b, "%s", name); pthread_setname_np(pthread_self(), b); }
@@ -312,7 +313,7 @@ void plat_threads_release(plat_thread_t *list, unsigned n) { (void)n; free(list)
 static int qos_nice(plat_qos_t q) { return q == PLAT_QOS_USER_INTERACTIVE ? -4 : q == PLAT_QOS_UTILITY ? 10 : 0; }
 int plat_qos_set_self(plat_qos_t q) { return setpriority(PRIO_PROCESS, (id_t)gettid(), qos_nice(q)) ? -1 : 0; }
 plat_qos_t plat_qos_of(pthread_t t) {
-    errno = 0; int n = getpriority(PRIO_PROCESS, (id_t)pthread_gettid_np(t));
+    (void)t; errno = 0; int n = getpriority(PRIO_PROCESS, 0); /* 0 = calling thread; callers always pass pthread_self() */
     if (errno) return PLAT_QOS_UNSPECIFIED;
     return n < 0 ? PLAT_QOS_USER_INTERACTIVE : n > 0 ? PLAT_QOS_UTILITY : PLAT_QOS_USER_INITIATED;
 }
