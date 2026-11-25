@@ -128,6 +128,7 @@ static void fp_wrap_compiles(void) {
 static int init_once(void) {
     void *lib = vka_driver_open();   // DM_VK_DRIVER: a custom driver through libadrenotools (vka_driver.c); NULL = the system's
     if (!lib) lib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+    if (!lib) lib = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);   /* Linux: may lack the unversioned symlink */
     if (!lib || !(vk.vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(lib, "vkGetInstanceProcAddr"))) { VRED("no libvulkan.so: %s", dlerror()); return 0; }
 #define G(f) vk.f = (PFN_##f)vk.vkGetInstanceProcAddr(NULL, #f);
     VKA_GLOBAL_FNS(G)
