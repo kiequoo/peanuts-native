@@ -15,11 +15,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 // plat_win_t from vka_present.c's plat_win.h (defined for arm64 Linux as a Wayland display+surface+dimensions struct)
 // Forward-declare it here to avoid pulling in Wayland headers directly (SDL2 provides them indirectly)
 typedef struct { void *display; void *surface; int width, height; } plat_win_t;
 // Host API (vk_android.h, via dmhost)
 void nxhost_set_window(void *w);
+// Global definitions from dm/host/main.c (excluded from dmhost for the selftest build)
+struct dm_flags { int thr, svc, fs, dbg, imports, bootprof; } g_flag;
+uint64_t g_t0_ns;
 
 static void usage(const char *argv0) {
     fprintf(stderr, "Usage: NXHOST_VK_SELFTEST=<frames> %s\n", argv0);
@@ -29,6 +33,10 @@ static void usage(const char *argv0) {
 
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
+    // Minimal flag init (matches main.c's host_preload)
+    g_flag.thr = !!getenv("DM_THR"); g_flag.svc = !!getenv("DM_SVC"); g_flag.fs = !!getenv("DM_FS");
+    g_flag.dbg = !!getenv("DM_DBG"); g_flag.imports = !!getenv("DM_IMPORTS");
+    { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); g_t0_ns = (uint64_t)ts.tv_sec * 1000000000ull + ts.tv_nsec; }
     const char *frames_env = getenv("NXHOST_VK_SELFTEST");
     int frames = frames_env ? atoi(frames_env) : 0;
     if (frames <= 0) { usage(argv[0]); fprintf(stderr, "NXHOST_VK_SELFTEST is not set or is 0: set it to run the self-test (e.g. NXHOST_VK_SELFTEST=600)\n"); return 1; }
