@@ -24,8 +24,10 @@ int front_text_input(const char *title, const char *sub, const char *guide, cons
 int front_user_select(const char *const *names, const int *offered, int n, int def) { (void)names; (void)offered; (void)n; (void)def; return -2; }
 // Controller applet: no join screen; return -2 (the host answers at once with whatever controllers are connected)
 int front_controller_support(const void *arg, int *count) { (void)arg; (void)count; return -2; }
-int main(int argc, char **argv);
-// Called by the launcher (front_linux_main.c) on its main thread. No heap tagging to disable on glibc.
+// dm_host_main_impl: dm/host/main.c compiled with -Dmain=dm_host_main_impl for dmhost-linux
+// so the SDL launcher can have its own main() without a symbol collision.
+extern int dm_host_main_impl(int argc, char **argv);
+// Called by the SDL launcher (linux/host/dmhost_main.c) on a background thread.  No heap tagging on glibc.
 __attribute__((visibility("default"))) int nxhost_main(int argc, char **argv) {
-    return main(argc, argv);
+    return dm_host_main_impl(argc, argv);
 }

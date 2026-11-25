@@ -39,10 +39,11 @@ endforeach()
 # Every dm/host/*.c except the VideoToolbox movie decoder (no AVC on Linux yet; movie_avc_linux.c will stub it)
 file(GLOB HOST_C CONFIGURE_DEPENDS ${HOST}/*.c)
 list(REMOVE_ITEM HOST_C ${HOST}/hle_movie_avc.c ${HOST}/main.c)
-# Linux platform, front end, and movie stubs (AVC/AAC → black; AV1 goes through dav1d below)
+# Linux platform, front end, input, and movie stubs (AVC/AAC → black; AV1 goes through dav1d below)
 list(APPEND HOST_C
   ${HOST}/plat/plat_linux.c
   ${HOST}/plat/front_linux.c
+  ${HOST}/android/input_android.c   # nxhost_input_* API; Android sensor/codec sections guarded by PLAT_ANDROID
   ${CMAKE_CURRENT_SOURCE_DIR}/stubs/movie_avc_stub.c   # Stage 2: replace with movie_avc_linux.c (FFmpeg H.264)
   ${ROOT}/dm/peanuts/profile/profile_rt.c
 )
@@ -138,9 +139,12 @@ target_link_libraries(selftest_launcher PRIVATE dmhost ${SDL2_LIBRARIES})
 target_compile_options(selftest_launcher PRIVATE -O1 -g -Wall -Wno-unused-function -Wno-format)
 
 # --- dmhost-linux: full game launcher (Stage 3) ---
-# Includes dm/host/main.c (which defines g_flag / g_t0_ns and host_preload) alongside
-# dmhost_main.c (the SDL2 window + input pump).
+# dmhost_main.c: SDL2 window + input pump (defines main()).
+# dm/host/main.c: host init / game dispatch, compiled as dm_host_main_impl() so it
+# does not collide with dmhost_main.c's main(). front_linux.c's nxhost_main() calls it.
 add_executable(dmhost-linux dmhost_main.c ${HOST}/main.c)
+set_source_files_properties(${HOST}/main.c PROPERTIES
+  COMPILE_DEFINITIONS "main=dm_host_main_impl")
 target_include_directories(dmhost-linux PRIVATE ${SDL2_INCLUDE_DIRS} ${PROFILE_INC})
 target_link_libraries(dmhost-linux PRIVATE dmhost ${SDL2_LIBRARIES})
 target_compile_options(dmhost-linux PRIVATE -O1 -g -Wall -Wno-unused-function -Wno-format)

@@ -7,14 +7,16 @@
 #include "../pad_join.h"
 #include "input_android.h"
 #include "pad_motion.h"
+#if PLAT_ANDROID
 #include <android/looper.h>
+#include <android/sensor.h>
+#include <media/NdkMediaCodec.h>
+#endif
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <android/sensor.h>
-#include <media/NdkMediaCodec.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -398,6 +400,7 @@ void nxhost_ctrl_button(int what) {
 }
 
 // ---- Motion: ASensorManager on a looper thread of its own ----
+#if PLAT_ANDROID
 static pthread_mutex_t g_mo_mu = PTHREAD_MUTEX_INITIALIZER;   // start / stop
 static pthread_t g_mo_th; static _Atomic int g_mo_run; static ALooper *_Atomic g_mo_looper; static int g_mo_on;
 static _Atomic int g_rotation = 1;   // a phone held in landscape, its top to the left, until the launcher says
@@ -498,6 +501,12 @@ void nxhost_motion_stop(void) {
     }
     pthread_mutex_unlock(&g_mo_mu);
 }
+#else   /* Linux: no phone sensors */
+void nxhost_motion_sens(float f) { dm_motion_sens(f); }
+void nxhost_motion_rotation(int r) { (void)r; }
+bool nxhost_motion_start(void) { return false; }
+void nxhost_motion_stop(void) {}
+#endif  /* PLAT_ANDROID */
 
 // ---- Rumble: the host's snapshots (hle_haptics.h) go to a thread of their own, which calls the launcher ----
 static pthread_mutex_t g_rb_mu = PTHREAD_MUTEX_INITIALIZER; static pthread_cond_t g_rb_cv = PTHREAD_COND_INITIALIZER;
@@ -627,6 +636,7 @@ int nxhost_paused(void) {
 }
 
 // Which decoders the phone has, for a bring-up log (input_android.h): created and deleted at once
+#if PLAT_ANDROID
 void nxhost_codecs_log(void) {
     static const char *types[] = {"video/avc", "video/hevc", "video/x-vnd.on2.vp8", "video/x-vnd.on2.vp9", "video/av01", "audio/mp4a-latm"};
     for (size_t i = 0; i < sizeof types / sizeof *types; i++) {
@@ -636,6 +646,9 @@ void nxhost_codecs_log(void) {
         if (c) { if (name) AMediaCodec_releaseName(c, name); AMediaCodec_delete(c); }
     }
 }
+#else
+void nxhost_codecs_log(void) {}
+#endif
 
 // ---- Frame rate cap ----
 void dm_fps_target_set(int t, const char *src); int dm_fps_target(void); int dm_fps_lock_rates(void); int nvn_game_fps(void); int nxhost_fps_limit_get(void);
