@@ -44,6 +44,7 @@ list(APPEND HOST_C
   ${HOST}/plat/plat_linux.c
   ${HOST}/plat/front_linux.c
   ${CMAKE_CURRENT_SOURCE_DIR}/stubs/movie_avc_stub.c   # Stage 2: replace with movie_avc_linux.c (FFmpeg H.264)
+  ${ROOT}/dm/peanuts/profile/profile_rt.c
 )
 
 # --- GFX C sources ---
@@ -75,10 +76,11 @@ target_compile_definitions(dav1d PRIVATE _GNU_SOURCE)
 
 # --- Game profile (generic stand-in for the selftest; Stage 2 replaces with a per-title profile) ---
 # Use the PEANUTS generic profile header if available; otherwise generate an empty stand-in
-set(GENERIC_PROFILE ${ROOT}/dm/peanuts/profile/game_profile_generic.h)
+set(PROFILE_DIR ${ROOT}/dm/peanuts/profile)
+set(GENERIC_PROFILE ${PROFILE_DIR}/game_profile_generic.h)
 set(PROFILE_INC ${GEN}/profile)
 file(MAKE_DIRECTORY ${PROFILE_INC})
-set(PROFILE_RT ${ROOT}/dm/peanuts/profile/profile_rt.h)
+set(PROFILE_RT ${PROFILE_DIR}/profile_rt.h)
 if(EXISTS ${GENERIC_PROFILE} AND EXISTS ${PROFILE_RT})
   configure_file(${GENERIC_PROFILE} ${PROFILE_INC}/game_profile.h COPYONLY)
   configure_file(${PROFILE_RT} ${PROFILE_INC}/profile_rt.h COPYONLY)
@@ -87,11 +89,19 @@ else()
   file(WRITE ${PROFILE_INC}/game_profile.h "/* generated: empty game profile for the Linux selftest build */\n")
 endif()
 # prewarm seed stand-in (no pipeline cache seeds for the selftest build)
-if(EXISTS ${ROOT}/dm/peanuts/profile/vk_prewarm_seed_generic.h)
-  configure_file(${ROOT}/dm/peanuts/profile/vk_prewarm_seed_generic.h ${PROFILE_INC}/vk_prewarm_seed.h COPYONLY)
+if(EXISTS ${PROFILE_DIR}/vk_prewarm_seed_generic.h)
+  configure_file(${PROFILE_DIR}/vk_prewarm_seed_generic.h ${PROFILE_INC}/vk_prewarm_seed.h COPYONLY)
 else()
   file(WRITE ${PROFILE_INC}/vk_prewarm_seed.h "/* generated: no prewarm seeds for the Linux selftest build */\n")
 endif()
+# schema_stamp.h: DM_PROFILE_SCHEMA_VERSION and DM_PROFILE_LAYOUT_SIZE (required by profile_rt.c)
+set(SCHEMA_H ${PROFILE_INC}/schema_stamp.h)
+add_custom_command(OUTPUT ${SCHEMA_H}
+  COMMAND ${Python3_EXECUTABLE} ${PROFILE_DIR}/gen_runtime_profile.py schema-stamp ${SCHEMA_H}
+  DEPENDS ${PROFILE_DIR}/gen_runtime_profile.py ${ROOT}/dm/games/game.py)
+set_source_files_properties(${PROFILE_DIR}/profile_rt.c PROPERTIES
+  OBJECT_DEPENDS ${SCHEMA_H}
+  COMPILE_OPTIONS -I${PROFILE_INC})
 
 # --- The combined host+gfx library (dmhost) ---
 add_library(dmhost STATIC ${HOST_C} ${GFX_C} ${ASM_OUT})

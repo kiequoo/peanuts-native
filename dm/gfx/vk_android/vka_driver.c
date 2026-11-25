@@ -8,7 +8,7 @@
 //   unset, empty, "system"  the system libvulkan.so, as before
 // DM_VK_HOOKDIR overrides where the hook libraries are (by default the folder libnxhost.so was loaded from, inside the APK). Restart only (vka_ctl.c g_restart).
 // A driver that fails to load falls back to the system one, with a [RED] line saying why.
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include <ctype.h>
 #include <dlfcn.h>

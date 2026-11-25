@@ -321,7 +321,7 @@ static int init_once(void) {
     if (x_ph && fph.queuePerfHint) V.perf_hint = (void *)vk.vkGetDeviceProcAddr(V.dev, "vkQueueSetPerfHintQCOM");
     VLOG("GPU clock floor (VK_QCOM_queue_perf_hint): %s", V.perf_hint ? "available (DM_VK_GPU_FLOOR)" : x_ph ? "extension without the feature" : "not on this device");
     vka_kgsl_after(V.perf_hint != NULL);
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
     { int vka_floor_adpf(void), vka_floor_kgsl(void); if (!V.perf_hint && !vka_floor_kgsl()) VLOG("GPU clock floor through ADPF: %s", vka_floor_adpf() ? "each frame's span and GPU time reported against the game's shortest period (DM_VK_GPU_FLOOR_ADPF)" : "off (DM_VK_GPU_FLOOR=0 or DM_VK_GPU_FLOOR_ADPF=0)"); }
 #endif
 
@@ -1123,7 +1123,7 @@ void vka_up_throttle(void) {
 void vka_up_stats(uint64_t *batches, uint64_t *waits, double *wait_ms) { if (batches) *batches = g_n_ubatch; if (waits) *waits = g_n_uwait; if (wait_ms) *wait_ms = g_uwait_ns / 1e6; }
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 // DM_VK_GPU_FLOOR=s (live; default 100): the queue's GPU clock floor through VK_QCOM_queue_perf_hint, s % of the highest clock (100: the highest; 0: the driver's default
 // governor). The GPU's governor follows its busy time, and the replay keeps the GPU idle while it records the start of a frame, so it clocks down: the same replayed level
 // frame took 21-28 ms of GPU time with the clock up and 93-99 ms after two seconds of idle GPU (Adreno 840), and in the live level the GPU finished 23-33 ms after the

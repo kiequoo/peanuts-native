@@ -5,7 +5,7 @@
 // What is not here yet, each logged once: SINT attachments and integer vertex formats (no variants), DrawTexture, line loops and quads through indirect draws,
 // tessellation's patch size, texel buffers, viewport swizzles other than a y flip
 // PEANUTS: transform feedback from the vertex stage is captured (vka_tf.c); from a geometry stage, or of an indirect draw, it is not (logged once)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))
 #include "vka.h"
 #include "vka_draw_range.h"   // PEANUTS: bounded draw ranges
 static void fbl_pass_begin(void);   // PEANUTS: feedback loops (below, beside DY)

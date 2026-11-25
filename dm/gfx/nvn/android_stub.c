@@ -1,7 +1,7 @@
 // The rest of the Metal side of dm/gfx on Android: what hle_nvn.c, hle_vi.c and the host call in nvn_mtl.m, nvn_capture.inc, hle_vk.m and hle_gl.m that the NVN → Vulkan replay
 // (dm/gfx/vk_android) does not implement yet, as stubs that log "[RED] gfx: <name> not yet on Android" once and return what "nothing to report" means (counters 0, no snapshots,
 // no CPU texel reads; frame captures are vka_capture.c). The replay took over memory pools, textures and descriptor pools, submissions, fences and the present (android/PORTING.md). The signatures are nvn_mtl.h / nvn_obj.h's
-#if defined(__ANDROID__)   // the Mac and iOS builds take every .c here (dm/host/Makefile's wildcard) and have the real nvn_mtl.m
+#if defined(__ANDROID__) || (defined(__linux__) && defined(__aarch64__))   // the Mac and iOS builds take every .c here (dm/host/Makefile's wildcard) and have the real nvn_mtl.m
 #include "nvn_mtl.h"
 #include "nvn_obj.h"
 #include "nvn_capture.h"
