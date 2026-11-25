@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include "../../dm/host/android/input_android.h"
 #include "../../dm/host/android/input_map.h"
@@ -128,6 +129,8 @@ int main(int argc, char **argv) {
 
     // Change into the pack directory so the host finds pack.tsv / shaders/ / game.tsv
     if (chdir(argv[1]) != 0) { perror(argv[1]); return 1; }
+    // Auto-set DM_PROFILE_PATH to <pack-dir>/profile.bin if not already set
+    if (!getenv("DM_PROFILE_PATH")) setenv("DM_PROFILE_PATH", "./profile.bin", 0);
     // Build a new argv with pack-dir replaced by "." for nxhost_main
     char *new_argv[64]; int new_argc = 0;
     new_argv[new_argc++] = argv[0];
